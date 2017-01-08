@@ -1,0 +1,106 @@
+---
+title: "TP4 Apprentissage Statistique"
+author: "Romane PERSCH & Maxime CALLOIX"
+date: "6 décembre 2016"
+output: html_document
+---
+
+#Statistiques descriptives
+
+```{r, message=FALSE, results = 'hide', echo=FALSE}
+library(DMwR)
+data(sales)
+summary(sales)
+c(nlevels(sales$ID), nlevels(sales$Prod))
+#Check when Quant and Val are unknown at the same time : 888 observations
+length(which(is.na(sales$Quant) & is.na(sales$Val)))
+#Distriution of the inspection results
+table(sales$Insp)/nrow(sales) * 100
+```
+
+
+**Question 1** (a) : Af???cher les diagrammes en bâton représentant le nombre de rapports par vendeur :  
+
+```{r, fig.keep = 'last'}
+counts <- table(sales$ID)
+barplot(counts, main="Number of reports per salesman", xlab="Salesman ID") 
+
+```
+
+**Question 1** (b) : Af???cher les diagrammes en bâton représentant le nombre de rapports par produit :  
+
+```{r, fig.keep = 'last'}
+counts <- table(sales$Prod)
+barplot(counts, main="Number of reports per product", xlab="Product ID") 
+```
+
+
+```{r, message=FALSE, results = 'hide', echo=FALSE}
+#Add unit price
+sales$Uprice <- sales$Val/sales$Quant #The unit price should be relatively constant over the transactions of the same product.
+```
+
+**Question 2** : Boxplot du prix unitaire :
+
+```{r, fig.keep = 'last'}
+sales$grp <- rep(1, nrow(sales))
+boxplot(Uprice~grp, data = sales)
+summary(sales$Uprice)
+```
+
+Sans surprise, le boxplot est difficilement lisible car les prix unitaires lorsqu'on considère tous les produits ensemble est très variable. Ceci est confirmé par les statistiques descriptives de la variable Uprice.
+
+```{r, message=FALSE, results = 'hide', echo=FALSE}
+attach(sales) 
+num.prod = as.numeric(table(Prod)) 
+sum(num.prod < 20) # nb de produits ayant <20 transactions 
+av.uprice = tapply(Uprice, Prod, mean, na.rm=T)
+
+```
+
+
+#The boxplot rule for outlier detection
+
+```{r, message=FALSE, echo=FALSE}
+BP.uprice = tapply(Uprice, Prod, function(x) boxplot.stats(x)$stats)#returns for each product a vector of length 5, containing the extreme of the lower whisker, the lower 'hinge', the median, the upper 'hinge' and the extreme of the upper whisker.
+n = tapply(Uprice, Prod, function(x) sum(boxplot.stats(x)$out)) #out returns the values of any data points which lie beyond the extremes of the whiskers 
+```
+
+
+**Question 3.0** : La commande "n = tapply(Uprice, Prod, function(x) sum(boxplot.stats(x)$out))" renvoie pour chaque produit la somme des outliers pour ce produit, c'est-à-dire la somme des prix unitaires qui sont au-dessus ou en-dessous des moustaches de la boîte à moustache du produit.
+
+**Question 3.1** :  En utilisant la commande tapply dé???nir un vecteur nommé out.uprice dont les composants sont les nombres d'outliers par produit :
+```{r}
+out.uprice = tapply(Uprice, Prod, function(x) length(boxplot.stats(x)$out))
+head(out.uprice, 2)
+```
+
+**Question 3.2** : Le nombre total d'outliers détectés par cette méthode est donné par :
+```{r}
+sum(out.uprice)
+```
+
+**Question 3.3**: Cela correspond à un pourcentage de transactions signalées comme anormales égal de 7.3% environ. Ce résultat est donné sur R par la commande :
+```{r}
+(sum(out.uprice)/nrow(sales))*100
+```
+
+**Question 3.4**: Les 10 produits ayant le plus de transactions douteuses sont renvoyés par :
+```{r}
+sort(out.uprice, decreasing = TRUE)[1:10]
+```
+Néanmoins, il serait également intéressant de prendre en compte le fait que le nombre de rapports par produit est assez variable, comme nous le montrait le boxplot de la question 1. Nous pourrions donc aussi calculer le pourcentage de transactions douteuses par produit et de regarder quels sont les 10 produits ayant le pourcentage de transactions douteuses. 
+
+Notons enfin que si nous n'avons ici pas pris en compte les informations supplémentaires dont nous disposons (certains rapports utilisés dans les calculs ont été identifiés frauduleux ou "ok"), nous pouvons remarque que notre méthode renvoie un pourcentage de transactions douteuses similaire au pourcentage observé parmi les rapports qui ont été inspectés. En effet, on obtient un total de 7.3% de transactions douteuses contre 1270/(1270 + 14462) = 8% de transactions identifiées comme frauduleuses parmi (le peu de) rapports inspectés. Il serait aussi intéressant de regarder si les transactions identifiées comme frauduleuses se retrouvent bien parmi nos transactions douteuses ou non (analyse de type matrice de confusion).
+
+
+```{r, message=FALSE, results = 'hide', echo=FALSE}
+#Remove from the dataset all the data corresponding to unlabeled examples
+sales1 <- sales[sales$Insp != "unkn",] 
+sales1$Insp=factor(sales1$Insp) # permet de supprimer la modalité "unkn" 
+sales1 <- na.omit(sales1) # supprime les exemples avec valeurs manquantes 
+library(RGtk2) 
+library(rattle) 
+#rattle() 
+```
+
